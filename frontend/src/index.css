@@ -1,0 +1,13 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, sans-serif;
+  background: #f5f6fb;
+  color: #1b1f3b;
+  -webkit-font-smoothing: antialiased;
+}

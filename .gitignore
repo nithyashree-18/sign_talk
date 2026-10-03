@@ -1,0 +1,10 @@
+venv/
+node_modules/
+__pycache__/
+*.pyc
+backend/signtalk.db
+ml/model.joblib
+ml/model_v1.joblib
+ml/data/landmarks_backup.csv
+.env
+dist/
