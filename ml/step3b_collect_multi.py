@@ -6,9 +6,15 @@ import cv2
 import mediapipe as mp
 from features import extract_features
 
+# Letter keys that are active. Start with "cl". Add "u", "v" or "o" only after you
+# have checked in the ISLRTC video that they do not look like a number sign.
+LETTERS = "cl"
+
 NAMES = {ord(str(i)): w for i, w in enumerate(
     ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"])}
 NAMES[ord("n")] = "none"
+for ch in LETTERS:
+    NAMES[ord(ch)] = f"letter_{ch}"
 
 ROUND = 150        # samples per key press
 COUNTDOWN = 3      # seconds to get your hand ready
@@ -68,10 +74,11 @@ with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7,
                     active = None
             cv2.putText(frame, msg, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         else:
-            cv2.putText(frame, "Press 0-9 (number) or n (none). SPACE = cancel, q = quit",
-                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 200, 200), 2)
+            help_text = f"0-9 number | n none | {' '.join(LETTERS)} letters | SPACE cancel | q quit"
+            cv2.putText(frame, help_text, (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 200, 200), 2)
 
-        summary = "  ".join(f"{k}:{v}" for k, v in sorted(totals.items()))
+        summary = "  ".join(f"{k.replace('letter_', '')}:{v}" for k, v in sorted(totals.items()))
         cv2.putText(frame, summary, (10, frame.shape[0] - 15),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
