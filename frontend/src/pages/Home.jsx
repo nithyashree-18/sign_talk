@@ -2,14 +2,19 @@ import { useEffect, useState } from "react";
 import { API } from "../api";
 import { CATEGORIES } from "../categories";
 
+const loadClasses = (kind) =>
+  fetch(`${API}/api/model-info?kind=${kind}`)
+    .then((res) => (res.ok ? res.json() : { classes: [] }))
+    .then((d) => d.classes || [])
+    .catch(() => []);
+
 export default function Home({ signs, onOpenCategory, onNavigate }) {
   const [live, setLive] = useState([]);
 
   useEffect(() => {
-    fetch(`${API}/api/model-info`)
-      .then((res) => (res.ok ? res.json() : { classes: [] }))
-      .then((d) => setLive(d.classes || []))
-      .catch(() => {});
+    Promise.all([loadClasses("numbers"), loadClasses("letters")]).then(([a, b]) =>
+      setLive([...a, ...b])
+    );
   }, []);
 
   return (

@@ -3,11 +3,17 @@ import { API } from "../api";
 import { digitOf } from "../utils";
 import CategoryTabs from "../components/CategoryTabs";
 
-const THRESHOLD = 0.75;   // below this confidence we show "Not sure"
+// below this confidence we show "Not sure". Letters are chosen from 26 classes,
+// so their confidence is naturally lower; adjust after testing.
+const THRESHOLDS = { numbers: 0.75, letters: 0.6 };
 const WINDOW = 3;         // majority vote over the last 3 results (less flicker)
 const INTERVAL_MS = 200;  // about 5 frames per second
 
 export default function Practice({ signs, category, onCategoryChange }) {
+  const kind = category === "Alphabets" ? "letters" : "numbers";
+  const kindRef = useRef(kind);
+  kindRef.current = kind;
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -20,18 +26,20 @@ export default function Practice({ signs, category, onCategoryChange }) {
   const [error, setError] = useState("");
   const [supported, setSupported] = useState([]);
   const [target, setTarget] = useState(null);
-  const [result, setResult] = useState({ hand: false, label: "-", confidence: 0 });
+  const [result, setResult] = useState({ hand: false, hands: 0, label: "-", confidence: 0 });
 
-  // which signs does the trained model know?
+  // which signs does the trained model for this section know?
   useEffect(() => {
-    fetch(`${API}/api/model-info`)
+    setSupported([]);
+    fetch(`${API}/api/model-info?kind=${kind}`)
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
+        setError("");
         setSupported(data.classes.filter((c) => c !== "none"));
       })
       .catch((err) => setError(`Could not load the model: ${err.message}`));
-  }, []);
+  }, [kind]);
 
   // switch the camera off when leaving this page
   useEffect(() => {
@@ -46,8 +54,9 @@ export default function Practice({ signs, category, onCategoryChange }) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
+    const currentKind = kindRef.current;
 
-    // mirror the frame, exactly like our training recordings
+    // mirror the frame, exactly like our recordings
     ctx.save();
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
@@ -59,7 +68,7 @@ export default function Practice({ signs, category, onCategoryChange }) {
       const res = await fetch(`${API}/api/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image }),
+        body: JSON.stringify({ image, kind: currentKind }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
@@ -67,16 +76,16 @@ export default function Practice({ signs, category, onCategoryChange }) {
 
       if (!data.hand_detected) {
         historyRef.current = [];
-        setResult({ hand: false, label: "-", confidence: 0 });
+        setResult({ hand: false, hands: 0, label: "-", confidence: 0 });
         return;
       }
 
-      const label = data.confidence >= THRESHOLD ? data.label : "uncertain";
+      const label = data.confidence >= THRESHOLDS[currentKind] ? data.label : "uncertain";
       historyRef.current = [...historyRef.current, label].slice(-WINDOW);
       const counts = {};
       historyRef.current.forEach((l) => (counts[l] = (counts[l] || 0) + 1));
       const shown = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
-      setResult({ hand: true, label: shown, confidence: data.confidence });
+      setResult({ hand: true, hands: data.hands, label: shown, confidence: data.confidence });
     } catch (err) {
       setError(`Prediction failed: ${err.message}`);
     }
@@ -122,7 +131,7 @@ export default function Practice({ signs, category, onCategoryChange }) {
     if (videoRef.current) videoRef.current.srcObject = null;
     historyRef.current = [];
     setRunning(false);
-    setResult({ hand: false, label: "-", confidence: 0 });
+    setResult({ hand: false, hands: 0, label: "-", confidence: 0 });
   }
 
   // only the signs of the selected section
@@ -191,6 +200,12 @@ export default function Practice({ signs, category, onCategoryChange }) {
           <button className="primary" onClick={running ? stop : start}>
             {running ? "Stop camera" : "Start camera"}
           </button>
+          {kind === "letters" && (
+            <p className="hint">
+              Most letters use both hands. Sit about an arm's length from the camera and keep
+              both hands fully in view.
+            </p>
+          )}
           {error && <p className="error">{error}</p>}
           <canvas ref={canvasRef} width={640} height={480} hidden />
         </div>
@@ -217,8 +232,8 @@ export default function Practice({ signs, category, onCategoryChange }) {
 
           <div className="readout">
             <div>
-              <span>Hand</span>
-              <strong>{result.hand ? "Detected" : "Not detected"}</strong>
+              <span>Hands</span>
+              <strong>{result.hand ? `${result.hands} detected` : "Not detected"}</strong>
             </div>
             <div>
               <span>Predicted sign</span>
