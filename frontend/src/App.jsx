@@ -1,13 +1,22 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import "./App.css";
 import { API } from "./api";
 import Sidebar from "./components/Sidebar";
 import Exam from "./pages/Exam";
+import Examiner from "./pages/Examiner";
 import Home from "./pages/Home";
 import Learn from "./pages/Learn";
+import Login from "./pages/Login";
 import Practice from "./pages/Practice";
 
 export default function App() {
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("signtalk_user"));
+    } catch {
+      return null;
+    }
+  });
   const [page, setPage] = useState("home");
   const [category, setCategory] = useState("Numbers");
   const [signs, setSigns] = useState([]);
@@ -37,9 +46,17 @@ export default function App() {
     setPage("learn");
   };
 
+  const logout = () => {
+    localStorage.removeItem("signtalk_user");
+    setUser(null);
+    setPage("home");
+  };
+
+  if (!user) return <Login onLogin={setUser} />;
+
   return (
     <div className="shell">
-      <Sidebar page={page} onNavigate={setPage} />
+      <Sidebar page={page} onNavigate={setPage} user={user} />
       <main className="main">
         <header className="topbar">
           {page === "learn" ? (
@@ -52,7 +69,14 @@ export default function App() {
           ) : (
             <div />
           )}
-          <div className="avatar">S</div>
+          <div
+            className="avatar"
+            title="Click to log out"
+            onClick={logout}
+            style={{ cursor: "pointer" }}
+          >
+            {user.name[0].toUpperCase()}
+          </div>
         </header>
 
         {page === "home" && (
@@ -73,6 +97,7 @@ export default function App() {
           <Practice signs={signs} category={category} onCategoryChange={setCategory} />
         )}
         {page === "exams" && <Exam onExit={() => setPage("home")} />}
+        {page === "examiner" && user.role === "examiner" && <Examiner user={user} />}
 
         <footer className="credit">
           Sign content based on resources by the Indian Sign Language Research and Training

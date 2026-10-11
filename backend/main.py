@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import exam, predict, signs
+from routes import auth, exam, exam_mgmt, examiner, predict, signs
 
 app = FastAPI(title="Sign Talk API")
 
@@ -18,3 +18,6 @@ app.add_middleware(
 app.include_router(signs.router)
 app.include_router(predict.router)
 app.include_router(exam.router)
+app.include_router(auth.router)
+app.include_router(examiner.router)
+app.include_router(exam_mgmt.router)
