@@ -4,6 +4,11 @@ import { API } from "../api";
 const INTERVAL_MS = 200;    // about 5 frames per second
 const FLASH_MS = 1200;      // how long "Correct" / "Time's up" stays on screen
 
+const KINDS = [
+  { id: "numbers", title: "Numbers exam" },
+  { id: "letters", title: "Alphabet exam" },
+];
+
 const detailOf = (data, res) =>
   typeof data.detail === "string" ? data.detail : `Server returned ${res.status}`;
 
@@ -40,6 +45,8 @@ export default function Exam({ onExit }) {
   const sessionRef = useRef(null);
 
   const [phase, setPhase] = useState("intro"); // intro | running | done
+  const [kind, setKind] = useState("numbers");
+  const [info, setInfo] = useState(null);       // what the selected exam looks like
   const [name, setName] = useState("");
   const [meta, setMeta] = useState(null);
   const [question, setQuestion] = useState(null);
@@ -58,6 +65,27 @@ export default function Exam({ onExit }) {
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
+
+  // load the question count and time limit of the selected exam
+  useEffect(() => {
+    let cancelled = false;
+    setInfo(null);
+    fetch(`${API}/api/exam?kind=${kind}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(detailOf(data, res));
+        if (!cancelled) {
+          setInfo(data);
+          setError("");
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(`Could not load this exam: ${err.message}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kind]);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -133,7 +161,7 @@ export default function Exam({ onExit }) {
     if (!video || !video.videoWidth) return;
     const ctx = canvas.getContext("2d");
 
-    // mirror the frame, exactly like our training recordings
+    // mirror the frame, exactly like our recordings
     ctx.save();
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
@@ -195,7 +223,7 @@ export default function Exam({ onExit }) {
 
     let data;
     try {
-      data = await post("/api/exam/start", { student_name: name.trim() });
+      data = await post("/api/exam/start", { student_name: name.trim(), kind });
     } catch (err) {
       stopCamera();
       setError(`Could not start the exam: ${err.message}`);
@@ -255,6 +283,7 @@ export default function Exam({ onExit }) {
   }
 
   const running = phase === "running" && question;
+  const seconds = info?.seconds_per_question;
   return (
     <div className="practice">
       <section className="practice-head">
@@ -281,7 +310,18 @@ export default function Exam({ onExit }) {
         <div className="side-card">
           {!running ? (
             <>
-              <h3>Before you begin</h3>
+              <h3>Choose your exam</h3>
+              <div className="tabs">
+                {KINDS.map((k) => (
+                  <button
+                    key={k.id}
+                    className={`tab ${k.id === kind ? "on" : ""}`}
+                    onClick={() => setKind(k.id)}
+                  >
+                    {k.title}
+                  </button>
+                ))}
+              </div>
               <input
                 className="name-input"
                 placeholder="Your name"
@@ -289,13 +329,22 @@ export default function Exam({ onExit }) {
                 onChange={(e) => setName(e.target.value)}
               />
               <ul className="rules">
-                <li>You are asked to show one sign at a time.</li>
-                <li>You have 15 seconds for each question.</li>
+                <li>
+                  {info ? `${info.count} questions, ` : ""}one sign at a time.
+                </li>
+                <li>You have {seconds ?? "a few"} seconds for each question.</li>
                 <li>Hold the sign steady in front of the camera until the bar fills.</li>
                 <li>The sign pictures are hidden during the exam.</li>
-                <li>Use good light and keep your hand fully in view.</li>
+                {kind === "letters" ? (
+                  <li>
+                    Most letters use both hands. Sit about an arm's length from the camera and
+                    keep both hands fully in view.
+                  </li>
+                ) : (
+                  <li>Use good light and keep your hand fully in view.</li>
+                )}
               </ul>
-              <button className="primary" onClick={start}>
+              <button className="primary" onClick={start} disabled={!info}>
                 Start exam
               </button>
             </>
