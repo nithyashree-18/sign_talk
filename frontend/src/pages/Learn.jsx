@@ -3,7 +3,9 @@ import CategoryTabs from "../components/CategoryTabs";
 import SignPicture from "../components/SignPicture";
 import { CATEGORIES } from "../categories";
 
-const isVideo = (sign) => sign.video_url && sign.video_url.endsWith(".mp4");
+const isYouTube = (s) => !!s.video_url && s.video_url.includes("youtube");
+const isMp4 = (s) => !!s.video_url && s.video_url.endsWith(".mp4");
+const hasVideo = (s) => isYouTube(s) || isMp4(s);
 
 function Hero({ info, learned, total }) {
   const pct = total ? Math.round((learned / total) * 100) : 0;
@@ -38,7 +40,7 @@ function SignCard({ sign, lesson, learned, onOpen }) {
         {learned && <span className="done">Learned</span>}
       </div>
       <div className="numeral">
-        {isVideo(sign) ? <span className="play">▶</span> : <SignPicture sign={sign} />}
+        {hasVideo(sign) ? <span className="play">▶</span> : <SignPicture sign={sign} />}
       </div>
       <h3>{sign.name}</h3>
       <p>{sign.meaning}</p>
@@ -60,7 +62,16 @@ function SignModal({ sign, learned, onToggle, onClose }) {
           ×
         </button>
         <div className="modal-media">
-          {isVideo(sign) ? (
+          {isYouTube(sign) ? (
+            <iframe
+              className="modal-embed"
+              src={sign.video_url}
+              title={sign.name}
+              allow="encrypted-media; picture-in-picture"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          ) : isMp4(sign) ? (
             <video className="modal-video" src={sign.video_url} controls loop muted playsInline autoPlay />
           ) : (
             <SignPicture sign={sign} big />
