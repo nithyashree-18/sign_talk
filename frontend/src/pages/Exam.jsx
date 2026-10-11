@@ -1,13 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { API } from "../api";
 
-const PASS_CONF = 0.6;      // minimum confidence for a frame to count as correct
-const STREAK_NEEDED = 3;    // consecutive correct frames (about one second)
 const INTERVAL_MS = 200;    // about 5 frames per second
 const FLASH_MS = 1200;      // how long "Correct" / "Time's up" stays on screen
 
 const detailOf = (data, res) =>
   typeof data.detail === "string" ? data.detail : `Server returned ${res.status}`;
+
+async function post(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? {}),
+  });
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {
+    /* no JSON body */
+  }
+  if (!res.ok) {
+    const err = new Error(detailOf(data, res));
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
 
 export default function Exam({ onExit }) {
   const videoRef = useRef(null);
@@ -18,18 +36,14 @@ export default function Exam({ onExit }) {
   const runningRef = useRef(false);
   const busyRef = useRef(false);
   const lockedRef = useRef(true);
-  const examRef = useRef(null);
-  const indexRef = useRef(0);
-  const answersRef = useRef([]);
-  const streakRef = useRef(0);
-  const startRef = useRef(0);
-  const nameRef = useRef("");
+  const deadlineRef = useRef(0);
+  const sessionRef = useRef(null);
 
-  const [phase, setPhase] = useState("intro"); // intro | running | submitting | failed | done
+  const [phase, setPhase] = useState("intro"); // intro | running | done
   const [name, setName] = useState("");
-  const [exam, setExam] = useState(null);
+  const [meta, setMeta] = useState(null);
+  const [question, setQuestion] = useState(null);
   const [error, setError] = useState("");
-  const [index, setIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [flash, setFlash] = useState(null); // "passed" | "missed" | null
   const [live, setLive] = useState({ hand: false, progress: 0 });
@@ -51,7 +65,69 @@ export default function Exam({ onExit }) {
     if (videoRef.current) videoRef.current.srcObject = null;
   }
 
-  async function check(qIndex) {
+  function stopAll() {
+    runningRef.current = false;
+    clearTimeout(timerRef.current);
+    clearTimeout(flashTimerRef.current);
+    stopCamera();
+  }
+
+  function failSession(message) {
+    stopAll();
+    setFlash(null);
+    setQuestion(null);
+    setError(message);
+    setPhase("intro");
+  }
+
+  function handleError(err) {
+    if (err.status === 404) {
+      failSession("Your exam session expired or the server restarted. Please start again.");
+    } else {
+      setError(`Recognition failed: ${err.message}`);
+    }
+  }
+
+  function showQuestion(q) {
+    setQuestion(q);
+    deadlineRef.current = Date.now() + q.seconds_left * 1000;
+    setTimeLeft(Math.ceil(q.seconds_left));
+    setLive({ hand: false, progress: 0 });
+    lockedRef.current = false;
+  }
+
+  function finishExam(result) {
+    stopAll();
+    setSummary(result);
+    setPhase("done");
+  }
+
+  async function advance() {
+    if (!runningRef.current) return;
+    try {
+      const data = await post(`/api/exam/${sessionRef.current}/next`);
+      if (!runningRef.current) return;
+      setFlash(null);
+      setError("");
+      if (data.finished) finishExam(data.result);
+      else showQuestion(data.question);
+    } catch (err) {
+      if (err.status === 404) {
+        handleError(err);
+      } else {
+        setError(`Connection problem: ${err.message}. Trying again…`);
+        flashTimerRef.current = setTimeout(advance, 1500);
+      }
+    }
+  }
+
+  function resolveQuestion(status) {
+    lockedRef.current = true;
+    setFlash(status === "passed" ? "passed" : "missed");
+    flashTimerRef.current = setTimeout(advance, FLASH_MS);
+  }
+
+  async function check() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !video.videoWidth) return;
@@ -65,65 +141,27 @@ export default function Exam({ onExit }) {
     ctx.restore();
     const image = canvas.toDataURL("image/jpeg", 0.8);
 
-    const res = await fetch(`${API}/api/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(detailOf(data, res));
+    const sid = sessionRef.current;
+    const data = await post(`/api/exam/${sid}/frame`, { image });
 
     // ignore an answer that arrives after the question has already ended
-    if (!runningRef.current || lockedRef.current || indexRef.current !== qIndex) return;
+    if (!runningRef.current || lockedRef.current || sessionRef.current !== sid) return;
 
-    const target = examRef.current.questions[qIndex].label;
-    const correct = data.hand_detected && data.label === target && data.confidence >= PASS_CONF;
-    streakRef.current = correct ? streakRef.current + 1 : 0;
-    setLive({ hand: data.hand_detected, progress: Math.min(1, streakRef.current / STREAK_NEEDED) });
-    if (streakRef.current >= STREAK_NEEDED) finishQuestion(true);
-  }
-
-  function finishQuestion(passed) {
-    if (lockedRef.current) return;
-    lockedRef.current = true;
-    const limit = examRef.current.seconds_per_question;
-    const q = examRef.current.questions[indexRef.current];
-    const seconds = Math.min(limit, (Date.now() - startRef.current) / 1000);
-    answersRef.current.push({ label: q.label, passed, seconds: Math.round(seconds * 10) / 10 });
-    setFlash(passed ? "passed" : "missed");
-
-    flashTimerRef.current = setTimeout(() => {
-      if (!runningRef.current) return;
-      setFlash(null);
-      if (indexRef.current + 1 >= examRef.current.questions.length) {
-        finishExam();
-      } else {
-        indexRef.current += 1;
-        setIndex(indexRef.current);
-        streakRef.current = 0;
-        setLive({ hand: false, progress: 0 });
-        startRef.current = Date.now();
-        setTimeLeft(limit);
-        lockedRef.current = false;
-      }
-    }, FLASH_MS);
+    setLive({ hand: data.hand_detected, progress: data.progress });
+    if (data.status === "passed" || data.status === "missed") resolveQuestion(data.status);
   }
 
   async function loop() {
     if (!runningRef.current) return;
     if (!lockedRef.current) {
-      const limit = examRef.current.seconds_per_question;
-      const elapsed = (Date.now() - startRef.current) / 1000;
-      setTimeLeft(Math.max(0, Math.ceil(limit - elapsed)));
-      if (elapsed >= limit) {
-        finishQuestion(false);
-      } else if (!busyRef.current) {
+      setTimeLeft(Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000)));
+      if (!busyRef.current) {
         busyRef.current = true;
         try {
-          await check(indexRef.current);
+          await check();
           setError("");
         } catch (err) {
-          setError(`Recognition failed: ${err.message}`);
+          handleError(err);
         } finally {
           busyRef.current = false;
         }
@@ -139,17 +177,7 @@ export default function Exam({ onExit }) {
     }
     setError("");
 
-    let data;
-    try {
-      const res = await fetch(`${API}/api/exam`);
-      data = await res.json();
-      if (!res.ok) throw new Error(detailOf(data, res));
-      if (!data.questions.length) throw new Error("This exam has no questions yet.");
-    } catch (err) {
-      setError(`Could not load the exam: ${err.message}`);
-      return;
-    }
-
+    // open the camera first, so the first question's timer does not run while it starts
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480 },
@@ -158,57 +186,33 @@ export default function Exam({ onExit }) {
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
     } catch {
+      stopCamera();
       setError(
         "Could not open the webcam. Allow camera access in the browser, and close any other program that is using the camera."
       );
       return;
     }
 
-    nameRef.current = name.trim();
-    examRef.current = data;
-    answersRef.current = [];
-    indexRef.current = 0;
-    streakRef.current = 0;
-    startRef.current = Date.now();
-    lockedRef.current = false;
-    runningRef.current = true;
-    setExam(data);
-    setIndex(0);
-    setTimeLeft(data.seconds_per_question);
-    setLive({ hand: false, progress: 0 });
-    setPhase("running");
-    loop();
-  }
-
-  function finishExam() {
-    runningRef.current = false;
-    clearTimeout(timerRef.current);
-    stopCamera();
-    sendResult();
-  }
-
-  async function sendResult() {
-    setPhase("submitting");
-    setError("");
+    let data;
     try {
-      const res = await fetch(`${API}/api/exam/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_name: nameRef.current, answers: answersRef.current }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(detailOf(data, res));
-      setSummary(data);
-      setPhase("done");
+      data = await post("/api/exam/start", { student_name: name.trim() });
     } catch (err) {
-      setError(`Could not submit your result: ${err.message}`);
-      setPhase("failed");
+      stopCamera();
+      setError(`Could not start the exam: ${err.message}`);
+      return;
     }
+
+    sessionRef.current = data.session_id;
+    setMeta({ title: data.title, seconds: data.seconds_per_question });
+    runningRef.current = true;
+    setPhase("running");
+    showQuestion(data.question);
+    loop();
   }
 
   function retake() {
     setSummary(null);
-    setExam(null);
+    setQuestion(null);
     setError("");
     setFlash(null);
     setLive({ hand: false, progress: 0 });
@@ -216,50 +220,27 @@ export default function Exam({ onExit }) {
   }
 
   // ---------- screens ----------
-  if (phase === "submitting") {
-    return (
-      <div className="result-card">
-        <h2>Submitting your answers…</h2>
-      </div>
-    );
-  }
-
-  if (phase === "failed") {
-    return (
-      <div className="result-card">
-        <h2>Your answers are safe, but not submitted yet</h2>
-        <p className="error">{error}</p>
-        <button className="primary" onClick={sendResult}>
-          Try submitting again
-        </button>
-      </div>
-    );
-  }
-
   if (phase === "done" && summary) {
     const pct = Math.round((summary.score / summary.total) * 100);
     return (
       <div className="result-card">
         <p className="eyebrow dark">Exam complete</p>
-        <h2>{exam.title}</h2>
+        <h2>{summary.title}</h2>
         <div className="score-big">
           {summary.score} / {summary.total}
         </div>
         <p className="muted">
-          {nameRef.current}, you scored {pct}%.
+          {summary.student_name}, you scored {pct}%.
         </p>
         <ul className="result-list">
-          {answersRef.current.map((a, i) => {
-            const q = exam.questions.find((x) => x.label === a.label);
-            return (
-              <li key={i}>
-                <span>{q ? q.name : a.label}</span>
-                <span className={a.passed ? "ok-text" : "miss-text"}>
-                  {a.passed ? `✓ ${a.seconds}s` : "✗ Not shown"}
-                </span>
-              </li>
-            );
-          })}
+          {summary.answers.map((a, i) => (
+            <li key={i}>
+              <span>{a.name}</span>
+              <span className={a.passed ? "ok-text" : "miss-text"}>
+                {a.passed ? `✓ ${a.seconds}s` : "✗ Not shown"}
+              </span>
+            </li>
+          ))}
         </ul>
         <div className="btn-row">
           <button className="secondary" onClick={retake}>
@@ -273,12 +254,12 @@ export default function Exam({ onExit }) {
     );
   }
 
-  const running = phase === "running" && exam;
+  const running = phase === "running" && question;
   return (
     <div className="practice">
       <section className="practice-head">
         <p className="eyebrow dark">Practical exam</p>
-        <h1>{running ? exam.title : "Show the signs you have learned"}</h1>
+        <h1>{running ? meta.title : "Show the signs you have learned"}</h1>
         <p className="muted">Your camera checks each sign automatically.</p>
       </section>
 
@@ -321,9 +302,9 @@ export default function Exam({ onExit }) {
           ) : (
             <>
               <p className="q-count">
-                Question {index + 1} of {exam.questions.length}
+                Question {question.index + 1} of {question.total}
               </p>
-              <h2 className="q-prompt">{exam.questions[index].prompt}</h2>
+              <h2 className="q-prompt">{question.prompt}</h2>
               <div className="timer-row">
                 <span className="muted-sm">Time left</span>
                 <span className={`timer ${timeLeft <= 5 ? "low" : ""}`}>{timeLeft}s</span>
