@@ -9,6 +9,8 @@ import Learn from "./pages/Learn";
 import Login from "./pages/Login";
 import Practice from "./pages/Practice";
 
+const startPage = (u) => (u?.role === "examiner" ? "examiner" : "home");
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -17,7 +19,13 @@ export default function App() {
       return null;
     }
   });
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState(() => {
+    try {
+      return startPage(JSON.parse(localStorage.getItem("signtalk_user")));
+    } catch {
+      return "home";
+    }
+  });
   const [category, setCategory] = useState("Numbers");
   const [signs, setSigns] = useState([]);
   const [error, setError] = useState("");
@@ -46,20 +54,29 @@ export default function App() {
     setPage("learn");
   };
 
+  const handleLogin = (u) => {
+    setUser(u);
+    setPage(startPage(u));       // examiners land on their dashboard
+  };
+
   const logout = () => {
     localStorage.removeItem("signtalk_user");
     setUser(null);
     setPage("home");
   };
 
-  if (!user) return <Login onLogin={setUser} />;
+  if (!user) return <Login onLogin={handleLogin} />;
+
+  // an examiner only ever sees the examiner page, a student never sees it
+  const current =
+    user.role === "examiner" ? "examiner" : page === "examiner" ? "home" : page;
 
   return (
     <div className="shell">
-      <Sidebar page={page} onNavigate={setPage} user={user} />
+      <Sidebar page={current} onNavigate={setPage} user={user} onLogout={logout} />
       <main className="main">
         <header className="topbar">
-          {page === "learn" ? (
+          {current === "learn" ? (
             <input
               className="search"
               placeholder="Search signs…"
@@ -79,10 +96,10 @@ export default function App() {
           </div>
         </header>
 
-        {page === "home" && (
+        {current === "home" && (
           <Home signs={signs} onOpenCategory={openCategory} onNavigate={setPage} />
         )}
-        {page === "learn" && (
+        {current === "learn" && (
           <Learn
             signs={signs}
             category={category}
@@ -93,11 +110,11 @@ export default function App() {
             onToggle={toggle}
           />
         )}
-        {page === "practice" && (
+        {current === "practice" && (
           <Practice signs={signs} category={category} onCategoryChange={setCategory} />
         )}
-        {page === "exams" && <Exam onExit={() => setPage("home")} />}
-        {page === "examiner" && user.role === "examiner" && <Examiner user={user} />}
+        {current === "exams" && <Exam onExit={() => setPage("home")} />}
+        {current === "examiner" && <Examiner user={user} />}
 
         <footer className="credit">
           Sign content based on resources by the Indian Sign Language Research and Training
