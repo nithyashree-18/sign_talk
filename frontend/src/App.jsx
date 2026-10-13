@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import "./App.css";
+import "./theme.css";
 import { API } from "./api";
 import Sidebar from "./components/Sidebar";
 import Exam from "./pages/Exam";
@@ -8,6 +9,7 @@ import Home from "./pages/Home";
 import Learn from "./pages/Learn";
 import Login from "./pages/Login";
 import Practice from "./pages/Practice";
+import Quiz from "./pages/Quiz";
 
 const startPage = (u) => (u?.role === "examiner" ? "examiner" : "home");
 
@@ -113,6 +115,7 @@ export default function App() {
         {current === "practice" && (
           <Practice signs={signs} category={category} onCategoryChange={setCategory} />
         )}
+        {current === "quiz" && <Quiz signs={signs} />}
         {current === "exams" && <Exam onExit={() => setPage("home")} />}
         {current === "examiner" && <Examiner user={user} />}
 

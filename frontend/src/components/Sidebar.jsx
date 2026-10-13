@@ -2,8 +2,8 @@
   { id: "home", label: "Home", ready: true, studentOnly: true },
   { id: "learn", label: "Learn", ready: true, studentOnly: true },
   { id: "practice", label: "Practice", ready: true, studentOnly: true },
+  { id: "quiz", label: "Quiz", ready: true, studentOnly: true },
   { id: "exams", label: "Exams", ready: true, studentOnly: true },
-  { id: "results", label: "Results", ready: false, studentOnly: true },
   { id: "examiner", label: "Examiner", ready: true, examinerOnly: true },
 ];
 
