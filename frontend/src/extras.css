@@ -1,0 +1,20 @@
+/* Results (student) and Class results (examiner). Appended after features.css */
+.st-table-wrap { overflow-x: auto; }
+.st-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.st-table th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.st-table td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.st-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.st-pill.pass { background: #e6f4ec; color: var(--ok); }
+.st-pill.fail { background: #fbeedb; color: #9a5a10; }
+.st-weak-badge.st-ok { background: #e6f4ec; color: var(--ok); }
+.st-board { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.st-board li { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.st-board li.me { border-color: var(--brand); background: #f1f8f3; }
+.st-board li strong { flex: 1; }
+.st-rank { width: 28px; height: 28px; border-radius: 50%; background: var(--tile); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.st-board li:nth-child(-n+3) .st-rank { background: var(--accent); color: #fff; }
+.st-score { font-family: var(--serif); font-size: 20px; }
+.st-select { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 14px; width: 100%; }
+.st-form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.st-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.st-assigned { margin-top: 8px; }

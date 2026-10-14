@@ -21,6 +21,13 @@ PATHS = {
 KINDS = list(PATHS)
 
 
+def landmark_points(found):
+    """21 (x, y) points per hand, as 0..1 fractions of the image, for drawing the skeleton."""
+    return [
+        [[round(float(p.x), 4), round(float(p.y), 4)] for p in hand.landmark] for hand in found
+    ]
+
+
 class Recognizer:
     def __init__(self, kind):
         self.kind = kind
@@ -58,9 +65,12 @@ class Recognizer:
             result = self.hands.process(rgb)
 
         found = list(result.multi_hand_landmarks or [])
-        nothing = {"hand_detected": False, "hands": 0, "label": None, "confidence": 0.0}
+        nothing = {
+            "hand_detected": False, "hands": 0, "label": None, "confidence": 0.0, "landmarks": [],
+        }
         if not found:
             return nothing
+        points = landmark_points(found)
 
         if self.kind == "letters":
             vec = two_hand_features(found)
@@ -70,7 +80,7 @@ class Recognizer:
                 return nothing
             vec = extended_features(feats) if self.mode == "extended" else xy_only(feats)
         if vec is None:
-            return nothing
+            return {**nothing, "landmarks": points}
 
         probs = self.model.predict_proba([vec])[0]
         best = int(probs.argmax())
@@ -79,6 +89,7 @@ class Recognizer:
             "hands": len(found),
             "label": str(self.model.classes_[best]),
             "confidence": float(probs[best]),
+            "landmarks": points,
         }
 
 

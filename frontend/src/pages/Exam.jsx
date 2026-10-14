@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { API } from "../api";
 
+
 const INTERVAL_MS = 200;    // about 5 frames per second
 const FLASH_MS = 1200;      // how long "Correct" / "Time's up" stays on screen
 
@@ -31,8 +32,8 @@ async function post(path, body) {
   }
   return data;
 }
-
-export default function Exam({ onExit }) {
+export default function Exam({ onExit, user })
+ {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -47,7 +48,7 @@ export default function Exam({ onExit }) {
   const [phase, setPhase] = useState("intro"); // intro | running | done
   const [kind, setKind] = useState("numbers");
   const [info, setInfo] = useState(null);       // what the selected exam looks like
-  const [name, setName] = useState("");
+  const [name, setName] = useState(user?.name || "");
   const [meta, setMeta] = useState(null);
   const [question, setQuestion] = useState(null);
   const [error, setError] = useState("");

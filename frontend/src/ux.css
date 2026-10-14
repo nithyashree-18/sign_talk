@@ -1,0 +1,116 @@
+/* Sign Talk: login screen, navigation, tabs, account menu and small comfort fixes. Loaded last. */
+
+/* ---------- keyboard focus everywhere ---------- */
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 55%, white); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- login ---------- */
+.auth-stage { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); background: var(--paper); }
+.auth-brand {
+  background: var(--brand); color: #f3efe4; padding: 44px 52px; display: flex; flex-direction: column;
+  justify-content: space-between; gap: 32px;
+}
+.auth-wordmark { font-family: var(--serif); font-size: 26px; letter-spacing: .01em; }
+.auth-brand h1 { font-family: var(--serif); font-size: clamp(34px, 4vw, 52px); line-height: 1.08; margin: 0 0 16px; max-width: 14ch; font-weight: 600; }
+.auth-brand p { margin: 0; max-width: 44ch; line-height: 1.6; color: #cfe0d8; font-size: 16px; }
+.auth-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 420px; }
+.auth-tiles figure {
+  margin: 0; background: #f7f4ee; border-radius: 12px; aspect-ratio: 1; position: relative; padding: 10px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.auth-tiles figure:nth-child(2) { transform: translateY(10px); }
+.auth-tiles figure:nth-child(5) { transform: translateY(10px); }
+.auth-tiles img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.auth-tiles figcaption {
+  position: absolute; left: 8px; bottom: 6px; font-family: var(--serif); font-size: 16px; color: var(--brand);
+}
+.auth-tiles .blank figcaption { position: static; font-size: 40px; }
+.auth-brand small { color: #9fbdb0; font-size: 12px; }
+
+.auth-form { display: flex; align-items: center; justify-content: center; padding: 40px 28px; }
+.auth-slot { width: min(400px, 100%); }
+/* The existing Login form draws its own page and card. Strip those so only the form shows. */
+.auth-slot div { background: transparent !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; margin: 0 !important; min-height: 0 !important; width: auto !important; max-width: none !important; height: auto !important; display: block; }
+.auth-slot h1, .auth-slot h2 { font-family: var(--serif); font-size: 32px; margin: 0 0 6px; color: var(--ink); font-weight: 600; }
+.auth-slot p { color: var(--muted); margin: 0 0 22px; font-size: 15px; }
+.auth-slot form { display: flex; flex-direction: column; gap: 14px; }
+.auth-slot input {
+  width: 100%; box-sizing: border-box; padding: 14px 16px; font-size: 16px; border: 1px solid var(--line);
+  border-radius: 10px; background: #fff; color: var(--ink); font-family: var(--sans);
+}
+.auth-slot input:focus { border-color: var(--brand); outline: 3px solid color-mix(in srgb, var(--brand) 25%, white); outline-offset: 0; }
+.auth-slot form button {
+  background: var(--brand) !important; color: #fff !important; border: 0; border-radius: 10px; padding: 14px; font-size: 16px;
+  font-weight: 600; cursor: pointer; margin-top: 4px; font-family: var(--sans); width: 100%;
+}
+.auth-slot form button:hover { filter: brightness(1.12); }
+.auth-slot a, .auth-slot button:not(form button) {
+  color: var(--brand); font-weight: 600; background: none; border: 0; cursor: pointer; text-decoration: underline;
+  font-size: inherit; font-family: inherit; padding: 0;
+}
+.auth-slot p:last-child { margin: 20px 0 0; text-align: left; }
+.auth-slot .error, .auth-slot [class*="error"] { color: var(--bad); font-size: 14px; margin: 0; }
+@media (max-width: 860px) {
+  .auth-stage { grid-template-columns: 1fr; }
+  .auth-brand { padding: 28px 24px; gap: 18px; }
+  .auth-brand h1 { font-size: 30px; }
+  .auth-tiles { display: none; }
+}
+
+/* ---------- sidebar ---------- */
+.sidebar.sb { display: flex; flex-direction: column; gap: 6px; padding: 22px 14px 16px; }
+.sb-brand { font-family: var(--serif); font-size: 24px; color: var(--brand); padding: 4px 12px 18px; }
+.sb-nav { display: flex; flex-direction: column; gap: 4px; }
+.sb-item {
+  display: flex; align-items: center; gap: 12px; text-align: left; padding: 11px 12px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ink); cursor: pointer; font-size: 15px; font-weight: 600; font-family: var(--sans);
+}
+.sb-item small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 1px; }
+.sb-item svg { flex: none; color: var(--muted); }
+.sb-item:hover { background: rgba(15, 76, 58, .08); }
+.sb-item.on { background: var(--brand); color: #fff; }
+.sb-item.on svg, .sb-item.on small { color: #d4e6dd; }
+.sb-goal {
+  margin-top: auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px; font-size: 13px;
+}
+.sb-goal span { color: var(--muted); font-size: 12px; }
+.sb-user { display: flex; align-items: center; gap: 10px; padding: 12px 6px 0; margin-top: 12px; border-top: 1px solid var(--line); }
+.sb-user > div { flex: 1; display: flex; flex-direction: column; min-width: 0; font-size: 14px; }
+.sb-user strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-user span { font-size: 12px; color: var(--muted); }
+.sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
+.sb-user .sb-avatar { font-size: 15px; color: #fff; }
+.sb-logout { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer; color: var(--ink); }
+.sb-logout:hover { border-color: var(--bad); color: var(--bad); }
+
+/* ---------- top bar + account menu ---------- */
+.topbar-title { font-family: var(--serif); font-size: 22px; margin: 0; color: var(--ink); }
+.account { position: relative; }
+.account .avatar { border: 0; cursor: pointer; }
+.account-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); min-width: 190px; background: #fff; border: 1px solid var(--line);
+  border-radius: 12px; padding: 6px; z-index: 40; box-shadow: 0 12px 30px rgba(0, 0, 0, .12);
+}
+.account-who { padding: 10px 12px; display: flex; flex-direction: column; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.account-who span { font-size: 12px; color: var(--muted); }
+.account-menu button { width: 100%; text-align: left; border: 0; background: transparent; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+.account-menu button:hover { background: var(--tile); }
+
+/* ---------- tabs inside a page ---------- */
+.sub-tabs { display: inline-flex; gap: 4px; background: var(--tile); padding: 4px; border-radius: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.sub-tab {
+  border: 0; background: transparent; padding: 9px 18px; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 600;
+  color: var(--muted); font-family: var(--sans); display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+}
+.sub-tab span { font-size: 11px; font-weight: 400; }
+.sub-tab.on { background: #fff; color: var(--brand); box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+
+/* ---------- dialog + banner ---------- */
+.dialog { background: var(--paper); border-radius: 16px; padding: 26px; width: min(400px, 100%); border: 1px solid var(--line); }
+.dialog h2 { font-family: var(--serif); margin: 0 0 6px; }
+.dialog p { margin: 0 0 18px; }
+.banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; background: #fbeedb;
+  border: 1px solid var(--accent); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 14px;
+}

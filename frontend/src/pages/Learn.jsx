@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import CategoryTabs from "../components/CategoryTabs";
-import SignPicture from "../components/SignPicture";
+import SignImage from "../components/SignImage";
+import SignModal from "../components/SignModal";
 import { CATEGORIES } from "../categories";
-
-const isYouTube = (s) => !!s.video_url && s.video_url.includes("youtube");
-const isMp4 = (s) => !!s.video_url && s.video_url.endsWith(".mp4");
-const hasVideo = (s) => isYouTube(s) || isMp4(s);
+import { hasVideo } from "../modules";
 
 function Hero({ info, learned, total }) {
   const pct = total ? Math.round((learned / total) * 100) : 0;
@@ -39,57 +37,14 @@ function SignCard({ sign, lesson, learned, onOpen }) {
         <span className="chip">Lesson {lesson}</span>
         {learned && <span className="done">Learned</span>}
       </div>
-      <div className="numeral">
-        {hasVideo(sign) ? <span className="play">▶</span> : <SignPicture sign={sign} />}
-      </div>
+      <div className="numeral">{hasVideo(sign) ? <span className="play">▶</span> : <SignImage sign={sign} />}</div>
       <h3>{sign.name}</h3>
       <p>{sign.meaning}</p>
     </button>
   );
 }
 
-function SignModal({ sign, learned, onToggle, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close" onClick={onClose} aria-label="Close">
-          ×
-        </button>
-        <div className="modal-media">
-          {isYouTube(sign) ? (
-            <iframe
-              className="modal-embed"
-              src={sign.video_url}
-              title={sign.name}
-              allow="encrypted-media; picture-in-picture"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          ) : isMp4(sign) ? (
-            <video className="modal-video" src={sign.video_url} controls loop muted playsInline autoPlay />
-          ) : (
-            <SignPicture sign={sign} big />
-          )}
-        </div>
-        <div className="modal-body">
-          <span className="chip">{sign.category}</span>
-          <h2>{sign.name}</h2>
-          <p className="modal-meaning">{sign.meaning}</p>
-          <button className={`primary ${learned ? "on" : ""}`} onClick={() => onToggle(sign.id)}>
-            {learned ? "Learned, tap to undo" : "Mark as learned"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+// Free browsing. The guided path (watch, practise, quiz) is on the Course page.
 export default function Learn({ signs, category, onCategoryChange, query, error, learned, onToggle }) {
   const [open, setOpen] = useState(null);
   const info = CATEGORIES.find((c) => c.id === category);
@@ -112,29 +67,16 @@ export default function Learn({ signs, category, onCategoryChange, query, error,
       <h2 className="section-title">Lessons</h2>
       <div className="grid">
         {shown.map((s) => (
-          <SignCard
-            key={s.id}
-            sign={s}
-            lesson={lessonOf.get(s.id)}
-            learned={learned.has(s.id)}
-            onOpen={setOpen}
-          />
+          <SignCard key={s.id} sign={s} lesson={lessonOf.get(s.id)} learned={learned.has(s.id)} onOpen={setOpen} />
         ))}
       </div>
       {!error && signs.length > 0 && inCategory.length === 0 && (
         <p className="empty">Signs for this section are coming soon.</p>
       )}
-      {inCategory.length > 0 && shown.length === 0 && (
-        <p className="empty">No signs match “{query}”.</p>
-      )}
+      {inCategory.length > 0 && shown.length === 0 && <p className="empty">No signs match “{query}”.</p>}
 
       {open && (
-        <SignModal
-          sign={open}
-          learned={learned.has(open.id)}
-          onToggle={onToggle}
-          onClose={() => setOpen(null)}
-        />
+        <SignModal sign={open} learned={learned.has(open.id)} onToggle={onToggle} onClose={() => setOpen(null)} />
       )}
     </>
   );
