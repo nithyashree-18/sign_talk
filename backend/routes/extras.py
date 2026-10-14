@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from certificate_pdf import make_certificate_pdf
 from db import get_db
+from emailer import notify_certificate
 from routes.exam import EXAMS
 
 router = APIRouter(prefix="/api", tags=["results"])
@@ -309,6 +310,7 @@ def issue_certificate(attempt_id: int):
     )
     conn.commit()
     conn.close()
+    notify_certificate(cert_id)  # optional email; does nothing unless EMAIL_BACKEND=ses
     return {"cert_id": cert_id}
 
 

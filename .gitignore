@@ -12,3 +12,4 @@ ml/*.joblib
 # your backup copies
 ml/data/*backup*.csv
 ml/data/*_v1.csv
+backend/signtalk.db.*

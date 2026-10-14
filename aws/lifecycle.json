@@ -1,0 +1,24 @@
+{
+  "Rules": [
+    {
+      "ID": "certificates-expire-30d",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "certificates/" },
+      "Expiration": { "Days": 30 }
+    },
+    {
+      "ID": "db-backups-expire-30d",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "backups/db/" },
+      "Expiration": { "Days": 30 }
+    },
+    {
+      "ID": "all-old-versions-30d-and-cleanup",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 },
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 },
+      "Expiration": { "ExpiredObjectDeleteMarker": true }
+    }
+  ]
+}

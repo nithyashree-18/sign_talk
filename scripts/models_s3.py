@@ -5,6 +5,8 @@
     python scripts/models_s3.py push              upload ml/model.joblib and ml/model_letters.joblib
     python scripts/models_s3.py pull              download them into ml/ (skips files you already have)
     python scripts/models_s3.py pull --force      download and replace your local files
+    python scripts/models_s3.py versions          every stored copy of each model (needs bucket versioning on)
+    python scripts/models_s3.py restore-version model.joblib 2    roll back to copy #2 from the versions list
 
 Uses the AWS login already set up on this computer (aws configure). No keys are stored in this file.
 Models only load on the scikit-learn version that trained them, so the version is part of the S3 folder name.
@@ -115,6 +117,56 @@ def cmd_pull(args):
         print(f"downloaded  {name}  ({mb(os.path.getsize(dest))})  <-  s3://{BUCKET}/{pre}{name}")
 
 
+def model_versions(s3, errors, name):
+    """Every stored copy of one model, newest first. Needs versioning switched on for the bucket."""
+    key = prefix() + name
+    try:
+        resp = s3.list_object_versions(Bucket=BUCKET, Prefix=key)
+    except errors as e:
+        fail(e)
+    found = [v for v in resp.get("Versions", []) if v["Key"] == key]
+    return sorted(found, key=lambda v: v["LastModified"], reverse=True)
+
+
+def cmd_versions(_):
+    errors = aws()[1]
+    s3 = client()
+    for name in FILES:
+        print(f"\n{name}")
+        found = model_versions(s3, errors, name)
+        if not found:
+            print("  nothing stored yet")
+        for i, v in enumerate(found, 1):
+            tag = "current" if v["IsLatest"] else "old"
+            print(f"  #{i}  {tag:<8} {v['LastModified'].astimezone():%Y-%m-%d %H:%M}  {mb(v['Size']):>10}  id {v['VersionId']}")
+
+
+def cmd_restore_version(args):
+    errors = aws()[1]
+    s3 = client()
+    found = model_versions(s3, errors, args.name)
+    pick = [v for i, v in enumerate(found, 1) if args.version in (str(i), v["VersionId"])]
+    if not pick:
+        sys.exit(f"No version '{args.version}' of {args.name}. Run: python scripts/models_s3.py versions")
+    v = pick[0]
+    key = prefix() + args.name
+    if not v["IsLatest"]:
+        try:  # copying an old version on top makes it current again; nothing is deleted
+            s3.copy_object(Bucket=BUCKET, Key=key, CopySource={"Bucket": BUCKET, "Key": key, "VersionId": v["VersionId"]})
+        except errors as e:
+            fail(e)
+        print(f"made current  {args.name} from {v['LastModified'].astimezone():%Y-%m-%d %H:%M}  (the replaced one stays as an old version)")
+    dest = os.path.join(ML_DIR, args.name)
+    try:
+        s3.download_file(BUCKET, key, dest + ".part", ExtraArgs={"VersionId": v["VersionId"]})
+    except errors as e:
+        if os.path.exists(dest + ".part"):
+            os.remove(dest + ".part")
+        fail(e)
+    os.replace(dest + ".part", dest)
+    print(f"downloaded    {args.name}  ({mb(os.path.getsize(dest))})  ->  ml/   Restart the backend to load it.")
+
+
 def main():
     p = argparse.ArgumentParser(description="Share Sign Talk model files through S3")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -125,6 +177,11 @@ def main():
     pull = sub.add_parser("pull")
     pull.add_argument("--force", action="store_true")
     pull.set_defaults(fn=cmd_pull)
+    sub.add_parser("versions").set_defaults(fn=cmd_versions)
+    rv = sub.add_parser("restore-version")
+    rv.add_argument("name", choices=FILES)
+    rv.add_argument("version", help="number from 'versions' (#2 -> 2) or the full version id")
+    rv.set_defaults(fn=cmd_restore_version)
     args = p.parse_args()
     args.fn(args)
 
